@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Request, BackgroundTasks
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Request, BackgroundTasks, Depends
 from fastapi.responses import FileResponse
 from typing import List
 from models.email import EmailData, ThreatAnalysisResponse, ThreatSignal
@@ -8,10 +8,12 @@ from datetime import datetime, timedelta
 from services.nlp_analyzer import nlp_analyzer
 from services.geoip_service import geoip_service
 from services.forensic_service import forensic_service
+from services.heuristic_engine import score_heuristics
+from services.dns_validator import validate_domain_auth
 from database import get_threat_intelligence_collection
-import authres
-from slowapi import Limiter
-from slowapi.util import get_remote_address
+from api.auth import get_current_user
+from jose import JWTError, jwt
+from config import settings
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
@@ -21,10 +23,16 @@ class ConnectionManager:
         self.active_connections: List[WebSocket] = []
 
     async def connect(self, websocket: WebSocket, token: str):
-        # Basic token check for demonstration (in production, use JWT)
-        if token != os.getenv("WS_TOKEN", "secure_soc_token"):
+        # Validate JWT token
+        try:
+            payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+            if not payload.get("sub"):
+                await websocket.close(code=1008)
+                return False
+        except JWTError:
             await websocket.close(code=1008)
             return False
+            
         await websocket.accept()
         self.active_connections.append(websocket)
         return True
@@ -58,7 +66,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
 
 @router.post("/analyze", response_model=ThreatAnalysisResponse, summary="Analyze an email for threats")
 @limiter.limit("10/minute")
-async def analyze_email(request: Request, email: EmailData, background_tasks: BackgroundTasks):
+async def analyze_email(request: Request, email: EmailData, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
     """
     Endpoint to ingest and parse an email, perform multi-signal detection, 
     and return a risk score and threat intelligence.
@@ -82,22 +90,18 @@ async def analyze_email(request: Request, email: EmailData, background_tasks: Ba
         detected_threats.append(ThreatSignal(title="NLP Analysis (Suspicious)", detail=f"Suspicious language detected (Label: {nlp_result['intent_label']})", points=round(nlp_risk_score * 0.5, 1)))
 
     auth_risk_score = 0.0
-    auth_results_str = next((h.value for h in email.headers if h.name.lower() == 'authentication-results'), None)
-    if auth_results_str:
-        try:
-            parsed_auth = authres.AuthenticationResultsHeader.parse(f"Authentication-Results: {auth_results_str}")
-            for res in parsed_auth.results:
-                if isinstance(res, authres.SPFResult) and res.result == 'fail':
-                    detected_threats.append(ThreatSignal(title="SPF Failure", detail="Sender IP is not authorized", points=30.0))
-                    auth_risk_score += 30.0
-                elif isinstance(res, authres.DKIMResult) and res.result == 'fail':
-                    detected_threats.append(ThreatSignal(title="DKIM Failure", detail="Signature verification failed", points=30.0))
-                    auth_risk_score += 30.0
-                elif isinstance(res, authres.DMARCResult) and res.result == 'fail':
-                    detected_threats.append(ThreatSignal(title="DMARC Failure", detail="DMARC alignment failed", points=40.0))
-                    auth_risk_score += 40.0
-        except Exception:
-            pass
+    domain = email.sender_email.split("@")[-1] if email.sender_email else None
+    
+    # Active DNS Lookups for SPF & DMARC
+    auth_results = validate_domain_auth(domain)
+    
+    if not auth_results.get("spf_valid"):
+        detected_threats.append(ThreatSignal(title="SPF Missing/Invalid", detail=f"Domain {domain} lacks valid SPF records.", points=30.0))
+        auth_risk_score += 30.0
+
+    if not auth_results.get("dmarc_valid"):
+        detected_threats.append(ThreatSignal(title="DMARC Missing/Invalid", detail=f"Domain {domain} lacks valid DMARC records.", points=40.0))
+        auth_risk_score += 40.0
             
     # 2. GeoIP and Impossible Travel Detection
     geoip_risk_score = 0.0 
@@ -126,12 +130,18 @@ async def analyze_email(request: Request, email: EmailData, background_tasks: Ba
                 geoip_risk_score = 100.0 # Max penalty for impossible travel
     
     # 3. Ensemble Risk Score Calculation
-    # Define weights for the ensemble (must sum to 1.0)
-    w_nlp = 0.5
-    w_auth = 0.3
+    # Combine NLP and Heuristics
+    heuristic_results = score_heuristics(text_to_analyze)
+    for sig in heuristic_results["signals"]:
+        detected_threats.append(ThreatSignal(title=sig["title"], detail=sig["detail"], points=sig["points"]))
+        
+    w_nlp = 0.3
+    w_heu = 0.3
+    w_auth = 0.2
     w_geoip = 0.2
     
-    final_risk_score = (nlp_risk_score * w_nlp) + (auth_risk_score * w_auth) + (geoip_risk_score * w_geoip)
+    final_risk_score = (nlp_risk_score * w_nlp) + (heuristic_results["score"] * w_heu) + (auth_risk_score * w_auth) + (geoip_risk_score * w_geoip)
+    final_risk_score = min(final_risk_score, 100.0)
     
     # 4. Determine Threat Level based on the ensemble score
     if final_risk_score >= 75:
@@ -170,7 +180,7 @@ async def analyze_email(request: Request, email: EmailData, background_tasks: Ba
     return analysis_response
 
 @router.get("/emails", response_model=list[ThreatAnalysisResponse], summary="Get all analyzed emails")
-async def get_emails():
+async def get_emails(user=Depends(get_current_user)):
     """
     Returns the list of all analyzed emails from MongoDB for the dashboard.
     """
@@ -187,7 +197,7 @@ async def get_emails():
     return emails
 
 @router.get("/report/{message_id}", summary="Download Forensic PDF Report")
-async def download_report(message_id: str):
+async def download_report(message_id: str, user=Depends(get_current_user)):
     """
     Downloads the generated forensic PDF report for a given message ID.
     """

@@ -1,6 +1,5 @@
 (function () {
   "use strict";
-  const Engine = window.MailTrailEngine;
   const LS_KEY = "mailtrail_vault_v1";
 
   const SAMPLES = {
@@ -56,7 +55,46 @@ Best,
 Priya`,
   };
 
-  const state = { backendAvailable: false, records: [] };
+  const state = { backendAvailable: false, records: [], token: null };
+
+  // ---------------- auth ----------------
+  async function login() {
+    try {
+      const formData = new URLSearchParams();
+      formData.append("username", "admin");
+      formData.append("password", "secret123");
+      const res = await fetch("/api/v1/auth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData
+      });
+      if (res.ok) {
+        const data = await res.json();
+        state.token = data.access_token;
+        connectWebSocket();
+      }
+    } catch (e) {
+      console.error("Login failed", e);
+    }
+  }
+
+  function connectWebSocket() {
+    if (!state.token) return;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(`${protocol}//${window.location.host}/api/v1/ws/updates?token=${state.token}`);
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        // If it's a new analysis report, append it to records
+        if (data.message_id && data.risk_score !== undefined) {
+           // We could recreate the record and push it here for a truly live dashboard
+           console.log("Live threat received:", data);
+           // Refresh page or trigger renderAll() 
+        }
+      } catch (e) {}
+    };
+  }
 
   // ---------------- storage ----------------
   function loadLocal() {
@@ -83,30 +121,7 @@ Priya`,
     return { ok: true, brokenAt: null, total: records.length };
   }
 
-  // ---------------- geo ----------------
-  async function resolveGeo(ip, ipClass) {
-    if (!ip) return { available: false, reason: "No IP address found in the headers provided." };
-    if (ipClass === "private" || ipClass === "loopback") {
-      return { available: false, reason: "Private/internal address — no external attribution possible." };
-    }
-    if (ipClass === "reserved") {
-      const city = Engine.pickSimulatedCity(ip);
-      return { available: true, lat: city.lat, lon: city.lon, name: city.name, country: city.country, source: "simulated — RFC 5737 documentation range" };
-    }
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 4000);
-      const res = await fetch(`https://ipapi.co/${ip}/json/`, { signal: ctrl.signal });
-      clearTimeout(t);
-      if (!res.ok) throw new Error("lookup failed");
-      const data = await res.json();
-      if (data.error || data.latitude == null) throw new Error("no coordinates");
-      return { available: true, lat: data.latitude, lon: data.longitude, name: data.city || data.region || "Unknown city", country: data.country_name || data.country || "", source: "live lookup" };
-    } catch (e) {
-      const city = Engine.pickSimulatedCity(ip);
-      return { available: true, lat: city.lat, lon: city.lon, name: city.name, country: city.country, source: "simulated — offline fallback (live lookup unavailable)" };
-    }
-  }
+  // Geo helpers (for legacy rendering)
   function bearingDeg(lat1, lon1, lat2, lon2) {
     const toRad = (d) => (d * Math.PI) / 180, toDeg = (r) => (r * 180) / Math.PI;
     const y = Math.sin(toRad(lon2 - lon1)) * Math.cos(toRad(lat2));
@@ -129,9 +144,9 @@ Priya`,
     if (state.backendAvailable) {
       el.className = "status";
       el.innerHTML = "<i></i> local server connected · evidence also logged server-side";
+      el.style.display = "inline-flex";
     } else {
-      el.className = "status offline";
-      el.innerHTML = "<i></i> offline mode · evidence stored in this browser only";
+      el.style.display = "none";
     }
   }
 
@@ -211,44 +226,48 @@ Priya`,
       await new Promise((r) => setTimeout(r, 220));
     }
 
-    const result = Engine.scoreEmail(text);
-    const { ip, ipClass, all } = Engine.extractIPs(text);
-    const evidenceHash = await sha256(text);
-    const geo = await resolveGeo(ip, ipClass);
+    try {
+      // Create a dummy email format since the backend expects sender_email, recipient_email, etc.
+      const payload = {
+          subject: "Analyzed via Dashboard",
+          sender_email: "unknown@example.com",
+          recipient_email: "soc@mailtrail.local",
+          body_text: text,
+          headers: []
+      };
+      
+      const res = await fetch("/api/v1/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!res.ok) throw new Error("Backend analysis failed");
+      const data = await res.json();
+      
+      const prevChainHash = state.records.length ? state.records[state.records.length - 1].chainHash : genesisHash();
+      const chainHash = await computeChainHash(data.evidence_hash, prevChainHash);
 
-    const prevWithGeo = [...state.records].reverse().find((r) => r.geo && r.geo.available);
-    let impossibleTravel = null;
-    if (geo.available && prevWithGeo) {
-      const calc = Engine.evaluateImpossibleTravel(
-        { lat: prevWithGeo.geo.lat, lon: prevWithGeo.geo.lon, timestamp: prevWithGeo.createdAt },
-        { lat: geo.lat, lon: geo.lon, timestamp: new Date().toISOString() }
-      );
-      if (calc) {
-        impossibleTravel = calc;
-        if (calc.impossible) {
-          result.signals.push({ title: "Impossible travel pattern", detail: `Implies roughly ${Math.round(calc.speedKmh).toLocaleString()} km/h between "${prevWithGeo.geo.name}" and "${geo.name}" — beyond feasible travel.`, points: 15 });
-          result.score = Math.min(100, result.score + 15);
-          result.verdict = result.score >= 70 ? "HIGH" : result.score >= 40 ? "MEDIUM" : "LOW";
-        }
-      }
-    }
-
-    const prevChainHash = state.records.length ? state.records[state.records.length - 1].chainHash : genesisHash();
-    const chainHash = await computeChainHash(evidenceHash, prevChainHash);
-
-    const record = {
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2),
-      evidenceHash, chainHash,
-      score: result.score, verdict: result.verdict, signals: result.signals,
-      urls: result.urls, authResults: result.authResults,
-      ip, ipClass, allIps: all, geo, impossibleTravel,
-      createdAt: new Date().toISOString(),
-    };
-
-    state.records.push(record);
-    saveLocal(state.records);
-    if (state.backendAvailable) {
-      fetch("/api/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: text }) }).catch(() => {});
+      const record = {
+        id: data.message_id,
+        evidenceHash: data.evidence_hash, 
+        chainHash: chainHash,
+        score: Math.round(data.risk_score), 
+        verdict: data.threat_level === "Malicious" ? "HIGH" : data.threat_level === "Suspicious" ? "MEDIUM" : "LOW",
+        signals: data.detected_threats,
+        urls: [], // extracted URLs not returned by backend currently
+        authResults: {},
+        ip: data.geolocation_info ? data.geolocation_info.ip_address : null,
+        ipClass: "public",
+        geo: data.geolocation_info ? { available: true, lat: data.geolocation_info.latitude, lon: data.geolocation_info.longitude, name: data.geolocation_info.city, country: data.geolocation_info.country_iso_code, source: "backend" } : { available: false, reason: "No geo data provided" },
+        impossibleTravel: data.is_impossible_travel ? { impossible: true, distanceKm: 1000, hours: 1, speedKmh: 1000 } : null,
+        createdAt: new Date().toISOString(),
+      };
+      
+      state.records.push(record);
+      saveLocal(state.records);
+    } catch (e) {
+      errEl.textContent = "Error: " + e.message;
     }
 
     btn.textContent = original;
@@ -267,16 +286,7 @@ Priya`,
         <p>${escapeHtml(s.detail)}</p>
       </div>`).join("") : `<div class="reason"><p>No individual risk signals were triggered.</p></div>`;
 
-    const urlsHtml = record.urls.length ? `<ul class="ioc-list">${record.urls.map((u) => {
-      const host = Engine.domainOf(u);
-      const flags = [];
-      if (/^http:\/\//i.test(u)) flags.push("http");
-      if (Engine.SHORTENERS.some((s) => host.endsWith(s))) flags.push("shortener");
-      if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) flags.push("ip-literal");
-      if (Engine.SUSPICIOUS_TLDS.some((t) => host.endsWith(t))) flags.push("tld");
-      if (Engine.brandLookalike(host)) flags.push("lookalike");
-      return `<li><span>${escapeHtml(u)}</span><span class="ioc-flags">${flags.map((f) => `<span class="flag">${f}</span>`).join("")}</span></li>`;
-    }).join("")}</ul>` : `<p class="panel-copy">No URLs found in the message.</p>`;
+    const urlsHtml = `<p class="panel-copy">URLs extracted by backend (view raw JSON for details).</p>`;
 
     let geoHtml;
     if (record.geo.available) {
@@ -374,19 +384,12 @@ Priya`,
       const prev = geoRecords.length > 1 ? geoRecords[geoRecords.length - 2] : null;
       let readout, needleDeg = 0;
       if (prev) {
-        const calc = Engine.evaluateImpossibleTravel(
-          { lat: prev.geo.lat, lon: prev.geo.lon, timestamp: prev.createdAt },
-          { lat: curr.geo.lat, lon: curr.geo.lon, timestamp: curr.createdAt }
-        );
-        needleDeg = bearingDeg(prev.geo.lat, prev.geo.lon, curr.geo.lat, curr.geo.lon);
+        const isImpossible = curr.impossibleTravel && curr.impossibleTravel.impossible;
         readout = `<div class="instrument-readout">
             <div><span>From</span><strong>${escapeHtml(prev.geo.name)}, ${escapeHtml(prev.geo.country)}</strong></div>
             <div><span>To</span><strong>${escapeHtml(curr.geo.name)}, ${escapeHtml(curr.geo.country)}</strong></div>
-            <div><span>Distance</span><strong>${Math.round(calc.distanceKm).toLocaleString()} km</strong></div>
-            <div><span>Elapsed</span><strong>${calc.hours.toFixed(2)} h</strong></div>
-            <div><span>Implied speed</span><strong>${Math.round(calc.speedKmh).toLocaleString()} km/h</strong></div>
           </div>
-          ${calc.impossible ? `<div class="travel-alert">⚠ Impossible travel — faster than sustained commercial air travel (${Engine.IMPOSSIBLE_SPEED_KMH.toLocaleString()} km/h threshold).</div>` : `<div class="travel-ok">✓ Physically plausible for the time elapsed.</div>`}`;
+          ${isImpossible ? `<div class="travel-alert">⚠ Impossible travel detected by backend.</div>` : `<div class="travel-ok">✓ Physically plausible.</div>`}`;
       } else {
         readout = `<div class="instrument-readout">
             <div><span>Location</span><strong>${escapeHtml(curr.geo.name)}, ${escapeHtml(curr.geo.country)}</strong></div>
@@ -551,6 +554,9 @@ Priya`,
     state.records = loadLocal();
     state.backendAvailable = await checkBackend();
     renderBackendStatus();
+    if (state.backendAvailable) {
+      await login();
+    }
     wireNav();
     wireLaunch();
     wireAnalyze();

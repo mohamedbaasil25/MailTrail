@@ -10,6 +10,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from api.routes import router as api_router
+from api.auth import router as auth_router
 from api.routes import analyze_email
 from database import Database
 
@@ -71,6 +72,7 @@ app.add_middleware(
 )
 
 # Include API routes
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(api_router, prefix="/api/v1")
 
 # Mount the frontend directory as static files

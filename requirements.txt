@@ -2,7 +2,14 @@
 fastapi==0.109.2
 uvicorn==0.27.1
 pydantic==2.6.1
+pydantic-settings
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+dnspython
 email-validator==2.1.0.post1
+pytest
+httpx
 transformers>=4.37.2
 torch>=2.2.0
 geoip2==2.9.0

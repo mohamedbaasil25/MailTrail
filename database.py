@@ -1,12 +1,8 @@
-import os
 import logging
 from motor.motor_asyncio import AsyncIOMotorClient
+from config import settings
 
 logger = logging.getLogger(__name__)
-
-# Default connection string for local development
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
-DB_NAME = os.getenv("MONGO_DB_NAME", "email_intelligence_db")
 
 class Database:
     client: AsyncIOMotorClient = None

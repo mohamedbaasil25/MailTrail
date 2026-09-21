@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MailTrail — Trace. Detect. Prove.</title>
+<meta name="description" content="MailTrail is an explainable, multi-signal email threat detection, geolocation and forensic intelligence platform built for SIH26106.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ================= MARKETING SITE ================= -->
+<div id="site">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <a href="#hero" class="wordmark"><span class="wordmark-mark">M</span>MailTrail</a>
+      <nav class="topnav-links">
+        <a href="#workflow">Workflow</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#feasibility">Feasibility</a>
+        <a href="#impact">Impact</a>
+      </nav>
+      <button class="btn btn-primary" data-launch-app>login</button>
+    </div>
+  </header>
+
+  <main>
+    
+    <!-- HERO -->
+    <section id="hero" class="section hero">
+      <div class="hero-copy">
+        <p class="logline">problem statement sih26106 · blockchain &amp; cybersecurity</p>
+        <h1 class="hero-title">Trace.<br>Detect.<br>Prove.</h1>
+        <p class="hero-sub">MailTrail turns a pasted email into an explainable verdict: sender geography, authentication posture, and a tamper-evident evidence hash — computed the moment you run it, with a visible reason for every point on the score.</p>
+        <div class="hero-actions">
+          <button class="btn btn-primary" data-launch-app data-target-view="analyze">Run a live analysis</button>
+          <a class="link-btn-bold" href="#workflow">Read the workflow</a>
+        </div>
+        
+        <!-- STATS BAR -->
+        <div class="stats-bar glass-card" style="margin-top: 40px; padding: 24px 32px; gap: 40px; flex-wrap: wrap; border-bottom: 1px solid var(--border);">
+          <div class="stat-item">
+            <span class="stat-label">analyzed this session</span>
+            <strong class="stat-value" id="heroAnalyzed">13</strong>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">evidence sealed</span>
+            <strong class="stat-value" id="heroSealed">13</strong>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">custody chain</span>
+            <strong class="stat-value" id="heroChain">verified</strong>
+          </div>
+        </div>
+      </div>
+      <div class="hero-trace" aria-hidden="true">
+        <svg viewBox="0 0 400 450" class="trace-svg">
+          <defs>
+            <linearGradient id="traceGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#00f0ff" />
+              <stop offset="100%" stop-color="#8b5cf6" />
+            </linearGradient>
+          </defs>
+          <path id="tracePath" d="M120,40 L120,140 L220,140 L220,240 L320,240 L320,340 L220,340 L220,420" />
+          <path class="glow-path" d="M120,40 L120,140 L220,140 L220,240 L320,240 L320,340 L220,340 L220,420" />
+          <circle class="trace-node" cx="120" cy="40" r="7"></circle>
+          <circle class="trace-node" cx="120" cy="140" r="7"></circle>
+          <circle class="trace-node" cx="220" cy="240" r="7"></circle>
+          <circle class="trace-node" cx="320" cy="340" r="7"></circle>
+          <circle class="trace-node trace-node--live" cx="220" cy="420" r="9"></circle>
+        </svg>
+        <span class="trace-label" style="top:26px;left:40px">ingest</span>
+        <span class="trace-label" style="top:126px;left:140px">detect</span>
+        <span class="trace-label" style="top:226px;left:240px">geo trace</span>
+        <span class="trace-label" style="top:326px;left:230px">evidence</span>
+        <span class="trace-label trace-label--live" style="top:406px;left:70px">dashboard · live</span>
+      </div>
+    </section>
+
+    <!-- PROBLEM -->
+    <section class="section section-narrow">
+      <p class="logline">the gap this closes</p>
+      <h2 class="section-title">Spam filters catch known patterns. They don't build a case.</h2>
+      <p class="section-body">A missed phishing email costs more than one inbox — it costs the hours a SOC analyst spends reconstructing what happened after the fact, and the window a victim has before money actually moves. MailTrail is built to shorten both: score the message the moment it lands, trace where it actually came from, and seal the finding into evidence before the trail goes cold.</p>
+    </section>
+
+    <!-- WORKFLOW -->
+    <section id="workflow" class="section">
+      <h2 class="section-title" style="margin-bottom: 40px">One email, five checkpoints.</h2>
+      <div class="timeline">
+        <div class="timeline-step">
+          <div class="timeline-marker">1</div>
+          <div class="timeline-content">
+            <h3>Ingest &amp; parse</h3>
+            <p>Headers and body are pulled apart — sender, links, attachments, and any SPF/DKIM/DMARC lines are isolated for scoring.</p>
+          </div>
+        </div>
+        <div class="timeline-step">
+          <div class="timeline-marker">2</div>
+          <div class="timeline-content">
+            <h3>Multi-signal detection</h3>
+            <p>Urgency language, credential lures, link and attachment risk, and authentication posture combine into one ensemble score.</p>
+            <p class="timeline-note" style="margin-top:12px; color:var(--muted)">Score 70+ continues to geo &amp; evidence. Below that, the message is marked safe and the loop ends at the dashboard.</p>
+          </div>
+        </div>
+        <div class="timeline-step">
+          <div class="timeline-marker">3</div>
+          <div class="timeline-content">
+            <h3>Geo attribution &amp; impossible-travel check</h3>
+            <p>The sender IP is traced and compared against that sender's last known location. A physically implausible jump feeds back into detection and raises the score again.</p>
+            <p class="timeline-note" style="margin-top:12px; color:var(--muted)">&#8618; feeds back into step 2</p>
+          </div>
+        </div>
+        <div class="timeline-step">
+          <div class="timeline-marker">4</div>
+          <div class="timeline-content">
+            <h3>Evidence sealing</h3>
+            <p>The message is hashed with SHA-256 and chained to the previous record, so an edit made after the fact would break the chain.</p>
+          </div>
+        </div>
+        <div class="timeline-step">
+          <div class="timeline-marker">5</div>
+          <div class="timeline-content">
+            <h3>Forensic report &amp; SOC alert</h3>
+            <p>A CERT-In-formatted report compiles automatically and the dashboard updates in real time.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INNOVATION -->
+    <section class="section">
+      <p class="logline">what's actually different</p>
+      <h2 class="section-title">Four things this build gets right</h2>
+      <div class="ledger">
+        <div class="ledger-row">
+          <span class="ledger-index">01</span>
+          <div class="ledger-body">
+            <h3>Explainable by construction</h3>
+            <p>Every point in the score traces to a named rule, not a hidden layer. An analyst sees exactly why an email was flagged, not just that it was.</p>
+          </div>
+        </div>
+        <div class="ledger-row">
+          <span class="ledger-index">02</span>
+          <div class="ledger-body">
+            <h3>Attribution, not just an IP lookup</h3>
+            <p>Sender location is compared against where that sender was last seen, so an implausible jump between two messages gets caught — not just noted.</p>
+          </div>
+        </div>
+        <div class="ledger-row">
+          <span class="ledger-index">03</span>
+          <div class="ledger-body">
+            <h3>Evidence built for chain of custody</h3>
+            <p>Every analysis is hashed and linked to the one before it, so the vault can prove nothing was altered after the fact — the blockchain half of the brief, done simply.</p>
+          </div>
+        </div>
+        <div class="ledger-row">
+          <span class="ledger-index">04</span>
+          <div class="ledger-body">
+            <h3>Tuned for the Indian threat surface</h3>
+            <p>Bank and government brand look-alikes — .in domains, UIDAI-, and tax-department-style language — are checked specifically, not just generic kits built for other markets.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ARCHITECTURE -->
+    <section id="architecture" class="section">
+      <p class="logline">under the hood</p>
+      <h2 class="section-title">Four zones, one pipeline</h2>
+      <div class="zones">
+        <div class="zone">
+          <span class="zone-index">Zone 1</span>
+          <h3>Users &amp; sources</h3>
+          <ul><li>Email clients — Gmail / Outlook / IMAP</li><li>API gateway — secure ingestion</li><li>Browser / mobile plugin — inline alerts</li></ul>
+        </div>
+        <div class="zone">
+          <span class="zone-index">Zone 2</span>
+          <h3>Detection engine</h3>
+          <ul><li>NLP intent model</li><li>SPF / DKIM / DMARC checks</li><li>URL &amp; attachment scan</li></ul>
+        </div>
+        <div class="zone">
+          <span class="zone-index">Zone 3</span>
+          <h3>Geo &amp; forensics</h3>
+          <ul><li>GeoIP lookup</li><li>Evidence vault — hash + custody log</li><li>Threat-intel cross-check</li></ul>
+        </div>
+        <div class="zone">
+          <span class="zone-index">Zone 4</span>
+          <h3>Intelligence &amp; response</h3>
+          <ul><li>Ensemble scoring</li><li>SOC dashboard</li><li>Auto forensic report</li></ul>
+        </div>
+      </div>
+      <div class="stack-note">
+        <p class="stack-note-label">Target production stack</p>
+        <div class="stack-strip">
+          <span>Python</span><span>FastAPI</span><span>PostgreSQL</span><span>React</span><span>Cloud / AWS</span><span>AI / ML</span>
+        </div>
+        <p class="stack-note-body">This build ships as dependency-free HTML, CSS and JavaScript plus a small Node.js service — no build step, no install, runs anywhere.</p>
+      </div>
+      <div class="roadmap-grid">
+        <div class="roadmap-col">
+          <h4>Running today, in this build</h4>
+          <ul>
+            <li>Heuristic ensemble engine — urgency, lures, link &amp; attachment risk, brand look-alikes, auth-header parsing</li>
+            <li>Client-side SHA-256 evidence hashing, hash-chained into a custody log</li>
+            <li>Live GeoIP attribution, with a clearly labelled offline/reserved-range fallback</li>
+            <li>Impossible-travel detection across stored analyses</li>
+            <li>Printable, CERT-In-formatted forensic report</li>
+            <li>Node.js backend with file-based persistence — works fully offline too</li>
+          </ul>
+        </div>
+        <div class="roadmap-col">
+          <h4>Production roadmap</h4>
+          <ul>
+            <li>DistilBERT / BERT transformer intent scoring</li>
+            <li>Live DNS-based SPF / DKIM / DMARC validation</li>
+            <li>Real IMAP / API email ingestion</li>
+            <li>VirusTotal &amp; AbuseIPDB threat-intel cross-checks</li>
+            <li>MaxMind / IPinfo GeoIP with ASN reputation</li>
+            <li>Full chain-of-custody export, authentication &amp; RBAC</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEASIBILITY -->
+    <section id="feasibility" class="section">
+      <p class="logline">why this holds up</p>
+      <h2 class="section-title">Built to be practical, not just a demo</h2>
+      <div class="feas-grid">
+        <ul class="feas-list">
+          <li>Runs on mature open-source AI/ML and GeoIP approaches</li>
+          <li>Modular design scales from pilot to nationwide rollout</li>
+          <li>Cloud-native path via Docker / Kubernetes</li>
+          <li>Plugs into existing mail gateways over IMAP / API</li>
+          <li>Aligns with NIST CSF &amp; SP 800-86 — no new process to invent</li>
+        </ul>
+        <table class="risk-table">
+          <thead><tr><th>Risk</th><th>How it's handled</th></tr></thead>
+          <tbody>
+            <tr><td>False positives / negatives</td><td>Ensemble scoring, human-in-the-loop review, continuous retraining</td></tr>
+            <tr><td>Privacy of reading email</td><td>On-prem option, encryption, metadata-only storage, DPDP Act 2023 alignment</td></tr>
+            <tr><td>Attackers adapt to one signal</td><td>Multi-vector detection plus live threat-intel updates</td></tr>
+            <tr><td>High email volume at scale</td><td>Async queues and horizontal scaling</td></tr>
+            <tr><td>Evidence must hold up legally</td><td>Collection–examination–analysis–reporting flow per NIST SP 800-86</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- IMPACT -->
+    <section id="impact" class="section">
+      <p class="logline">who this is for</p>
+      <h2 class="section-title">From reactive filtering to proactive attribution</h2>
+      <div class="impact-grid">
+        <div class="impact-card"><h3>Citizens &amp; individuals</h3><p>Protected from fraud and identity theft, with faster warnings before money actually moves.</p></div>
+        <div class="impact-card"><h3>Enterprises &amp; SOC teams</h3><p>Faster triage and lower breach dwell-time, so analyst hours go to real threats.</p></div>
+        <div class="impact-card"><h3>Government &amp; CERT-In</h3><p>Ready-to-use forensic evidence that supports investigation and enforcement.</p></div>
+        <div class="impact-card"><h3>The nation</h3><p>Stronger cyber-resilience and digital trust at scale, with lower economic losses from phishing.</p></div>
+      </div>
+    </section>
+
+    <!-- RESEARCH -->
+    <section class="section">
+      <p class="logline">research and references</p>
+      <h2 class="section-title">What this is grounded in</h2>
+      <div class="research-grid">
+        <div>
+          <h4>Primary research</h4>
+          <p>An explainable transformer-based approach to phishing email detection (arXiv:2402.13871); a dual-path model combining transformer NLP with structural URL analysis (arXiv:2509.20972).</p>
+        </div>
+        <div>
+          <h4>Standards &amp; frameworks</h4>
+          <p>NIST Cybersecurity Framework 2.0; NIST SP 800-86, Guide to Integrating Forensic Techniques into Incident Response.</p>
+        </div>
+        <div>
+          <h4>Datasets &amp; threat-intel sources</h4>
+          <p>MaxMind GeoIP2 documentation; AbuseIPDB and VirusTotal threat-intelligence APIs.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="wordmark"><span class="wordmark-mark">M</span>MailTrail</div>
+    <p>SIH26106 · AI-Powered Email Threat Detection, GeoLocation &amp; Forensic Intelligence Platform · Blockchain &amp; Cybersecurity · Software</p>
+    <p class="site-footer-fine">This site's live demo runs a rule-based heuristic engine end-to-end in your browser (and, if you're running the included Node server, on the server too). No email you paste in is ever sent anywhere else, and raw message content is never written to the evidence vault — only its hash and derived signals are.</p>
+  </footer>
+</div>
+
+<!-- ================= LIVE DEMO APP ================= -->
+<div id="app" class="app-shell" hidden>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">M</div>
+      <div><strong>MailTrail</strong><span>Trace. Detect. Prove.</span></div>
+    </div>
+    <nav>
+      <button class="nav active" data-view="overview">Overview</button>
+      <button class="nav" data-view="analyze">Analyze email</button>
+      <button class="nav" data-view="geo">Geo intelligence</button>
+      <button class="nav" data-view="evidence">Evidence vault</button>
+      <button class="nav" data-view="reports">Forensic reports</button>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="link-btn" data-exit-app>← Back to overview site</button>
+      <div class="sidebar-meta">SIH 2026 · SIH26106</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div><p class="logline" id="pageEyebrow">security operations center</p><h1 id="pageTitle">Threat overview</h1></div>
+      <div class="status-cluster">
+        <span class="status" id="backendStatus"><i></i> checking backend…</span>
+      </div>
+    </header>
+
+    <!-- OVERVIEW -->
+    <section id="view-overview" class="view active-view">
+      <div class="stats">
+        <div class="stat"><span>Emails analyzed</span><strong id="statAnalyzed">0</strong><small>this vault</small></div>
+        <div class="stat"><span>High risk</span><strong id="statHigh">0</strong><small>requires review</small></div>
+        <div class="stat"><span>Average risk</span><strong id="statAvg">0%</strong><small>ensemble score</small></div>
+        <div class="stat"><span>Evidence sealed</span><strong id="statSealed">0</strong><small>tamper-evident</small></div>
+      </div>
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-title"><h3>Detection pipeline</h3><span class="live" id="pipelineLive">idle</span></div>
+          <div class="pipeline" id="pipelinePanel">
+            <div><b>01</b><span>Email ingest &amp; parse</span><i>—</i></div>
+            <div><b>02</b><span>Multi-signal detection</span><i>—</i></div>
+            <div><b>03</b><span>Geo attribution</span><i>—</i></div>
+            <div><b>04</b><span>Evidence sealing</span><i>—</i></div>
+            <div><b>05</b><span>SOC response</span><i>—</i></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><h3>Custody chain</h3><span id="chainBadge">no records yet</span></div>
+          <p class="panel-copy" id="chainSummary">Run your first analysis to open the evidence vault and start the custody chain.</p>
+          <button class="btn btn-secondary" id="verifyChainBtnOverview">Verify chain integrity</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><h3>Recent activity</h3><span>last 5</span></div>
+        <div id="recentActivity"><div class="empty-state">Nothing analyzed yet. <button class="link-btn" data-view-jump="analyze">Run your first analysis →</button></div></div>
+      </div>
+    </section>
+
+    <!-- ANALYZE -->
+    <section id="view-analyze" class="view">
+      <div class="section-intro"><p>Paste the full email — headers included, if you have them — for the most complete read on authentication and sender IP.</p></div>
+      <div class="analyzer-grid">
+        <div class="panel form-panel">
+          <label for="emailInput">Email content / headers</label>
+          <textarea id="emailInput" placeholder="From: alerts@example.com&#10;Reply-To: verify@example.com&#10;Received: from mail.relay.example ([203.0.113.42])&#10;SPF: fail&#10;DKIM: fail&#10;Subject: Urgent: verify your account&#10;&#10;Your account will be suspended. Verify now at http://example-verify.example/login"></textarea>
+          <div class="sample-row">
+            <span>Load a sample:</span>
+            <button class="chip" data-sample="high">Bank phishing</button>
+            <button class="chip" data-sample="medium">Delivery notice</button>
+            <button class="chip" data-sample="low">Internal memo</button>
+          </div>
+          <button id="analyzeBtn" class="btn btn-primary full">Run MailTrail analysis</button>
+          <div id="analyzeError" class="error"></div>
+        </div>
+        <div id="resultPanel" class="panel result-panel empty">
+          <div class="empty-state">Analysis results will appear here.<br><small>Load a sample on the left to see the full pipeline run.</small></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GEO -->
+    <section id="view-geo" class="view">
+      <div class="section-intro"><p>Sender location for the most recent analysis, measured against the one before it.</p></div>
+      <div class="panel" id="geoInstrument">
+        <div class="empty-state">No geo-tagged analysis yet. <button class="link-btn" data-view-jump="analyze">Run one →</button></div>
+      </div>
+      <div class="panel" style="margin-top:16px">
+        <div class="panel-title"><h3>Attribution history</h3><span id="geoHistoryCount">0 records</span></div>
+        <div id="geoHistoryTable" class="table-wrap"><div class="empty-state">Nothing traced yet.</div></div>
+      </div>
+    </section>
+
+    <!-- EVIDENCE -->
+    <section id="view-evidence" class="view">
+      <div class="section-intro"><p>Every analysis is represented by a SHA-256 hash chained to the record before it. Raw message content is never stored — only its hash and derived signals.</p></div>
+      <div class="panel">
+        <div class="panel-title">
+          <h3>Custody ledger</h3>
+          <div class="panel-actions">
+            <button class="btn btn-secondary" id="verifyChainBtn">Verify chain integrity</button>
+            <button class="btn btn-ghost" id="clearVaultBtn">Clear vault</button>
+          </div>
+        </div>
+        <div id="chainVerifyResult"></div>
+        <div id="evidenceTable" class="table-wrap"><div class="empty-state">No evidence yet. Analyze an email to create the first record.</div></div>
+      </div>
+    </section>
+
+    <!-- REPORTS -->
+    <section id="view-reports" class="view">
+      <div class="section-intro"><p>Compile a submission-ready report from any record in the evidence vault.</p></div>
+      <div class="panel">
+        <label for="reportSelect">Choose a record</label>
+        <div class="report-select-row">
+          <select id="reportSelect"><option value="">— select an evidence record —</option></select>
+          <button class="btn btn-secondary" id="reportBtn">Generate report</button>
+        </div>
+      </div>
+      <div id="reportOutput"></div>
+    </section>
+
+  </main>
+</div>
+
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

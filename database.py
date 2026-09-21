@@ -5,7 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 logger = logging.getLogger(__name__)
 
 # Default connection string for local development
-MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://cybertechmohamed_db_user:MySecurePassword123@cluster0.bca0aug.mongodb.net/?appName=Cluster0")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
 DB_NAME = os.getenv("MONGO_DB_NAME", "email_intelligence_db")
 
 class Database:

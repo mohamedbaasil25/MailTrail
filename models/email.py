@@ -30,6 +30,8 @@ class ThreatAnalysisResponse(BaseModel):
     Model representing the result of the threat analysis.
     """
     message_id: str
+    sender_email: Optional[str] = Field(None, description="Sender of the analyzed email")
+    subject: Optional[str] = Field(None, description="Subject of the analyzed email")
     risk_score: float = Field(..., ge=0.0, le=100.0, description="Risk score from 0 to 100")
     threat_level: str = Field(..., description="e.g., 'Safe', 'Suspicious', 'Malicious'")
     detected_threats: List[ThreatSignal] = Field(default_factory=list)

@@ -6,16 +6,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from api.routes import router as api_router
+from rate_limiter import limiter
+from api.routes import router as api_router, run_analysis
 from api.auth import router as auth_router
-from api.routes import analyze_email
 from database import Database
-
-# Set up Rate Limiter
-limiter = Limiter(key_func=get_remote_address)
 
 async def imap_worker():
     imap_server = os.getenv("IMAP_SERVER")
@@ -35,7 +31,7 @@ async def imap_worker():
             
             for email in emails:
                 try:
-                    await analyze_email(email)
+                    await run_analysis(email, username="imap_worker")
                 except Exception as e:
                     logging.error(f"Error analyzing fetched email: {e}")
         except Exception as e:
@@ -53,9 +49,13 @@ async def lifespan(app: FastAPI):
     await Database.close_db()
 
 app = FastAPI(
-    title="Email Intelligence API",
-    description="API for AI-Powered Email Threat Detection, GeoLocation & Forensic Intelligence",
+    title="MailTrail Threat API",
+    description="An explainable, multi-signal email threat detection and forensic intelligence platform built for SIH26106.",
     version="1.0.0",
+    contact={
+        "name": "SIH26106 Team",
+        "url": "https://github.com/mohamedbaasil25/MailTrail",
+    },
     lifespan=lifespan
 )
 
@@ -75,9 +75,10 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(api_router, prefix="/api/v1")
 
+@app.get("/api/health")
+async def root_health_check():
+    return {"status": "healthy", "ok": True, "service": "Email Intelligence API"}
+
 # Mount the frontend directory as static files
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
-
-@app.get("/")
-def read_root():
-    return FileResponse("frontend/index.html")
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

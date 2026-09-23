@@ -2,8 +2,11 @@ import imaplib
 import email
 from email.policy import default
 import re
+import logging
 from typing import List
 from models.email import EmailData, EmailHeader
+
+logger = logging.getLogger(__name__)
 
 def extract_email_address(addr: str) -> str:
     """
@@ -31,7 +34,7 @@ def fetch_emails_via_imap(imap_server: str, username: str, password: str, folder
         # Search for all emails in the selected folder
         status, messages = mail.search(None, "ALL")
         if status != "OK":
-            print(f"Failed to search folder {folder} or no messages found.")
+            logger.warning(f"Failed to search folder {folder} or no messages found.")
             return emails_data
 
         # Get the list of email IDs and take the most recent ones up to the limit
@@ -80,7 +83,7 @@ def fetch_emails_via_imap(imap_server: str, username: str, password: str, folder
                                         elif content_type == "text/html":
                                             body_html += decoded_payload
                                 except Exception as e:
-                                    print(f"Error decoding multipart payload: {e}")
+                                    logger.warning(f"Error decoding multipart payload: {e}")
                     else:
                         # Handle non-multipart emails
                         content_type = msg.get_content_type()
@@ -94,7 +97,7 @@ def fetch_emails_via_imap(imap_server: str, username: str, password: str, folder
                                 elif content_type == "text/html":
                                     body_html = decoded_payload
                         except Exception as e:
-                            print(f"Error decoding payload: {e}")
+                            logger.warning(f"Error decoding payload: {e}")
                             
                     # Construct and validate using our Pydantic model
                     email_data = EmailData(
@@ -111,7 +114,7 @@ def fetch_emails_via_imap(imap_server: str, username: str, password: str, folder
                     emails_data.append(email_data)
                     
     except Exception as e:
-        print(f"An IMAP error occurred: {e}")
+        logger.error(f"An IMAP error occurred: {e}")
         
     finally:
         # Ensure we gracefully close the connection

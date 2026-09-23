@@ -1,0 +1,10 @@
+venv/
+.venv
+__pycache__/
+*.pyc
+*.pyo
+.git/
+reports/
+GeoLite2-City.mmdb
+scratch/
+.pytest_cache/

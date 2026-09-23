@@ -39,3 +39,10 @@ reports/
 .idea/
 .vscode/
 *.log
+
+# Large DBs and temp files
+*.mmdb
+scratch/
+test_api.py
+extract_old.py
+.pytest_cache/

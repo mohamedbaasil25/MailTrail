@@ -1,74 +1,51 @@
-# MailTrail - AI-Powered Email Threat Intelligence
-
-<p align="center">
-  <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
-  <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
-  <img src="https://img.shields.io/badge/MongoDB-4EA94B?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB" />
-</p>
+# MailTrail — Threat Intelligence & Forensics Platform
 
 MailTrail is an advanced, full-stack email security platform that analyzes inbound emails for phishing, malicious intent, and impossible travel scenarios. It uses a modern React frontend and a FastAPI backend powered by MongoDB for persistence.
 
----
-
 ## 🚀 Key Features
 
-* **Heuristic NLP Engine**: Uses a rule-based Natural Language Processing engine to detect urgency, lures, and malicious intent within email content.
-* **Geo-Intelligence & Impossible Travel**: Identifies the true physical location of sender IPs using MaxMind's DB-IP database. Automatically flags anomalous "impossible travel" logins by calculating the speed and distance between consecutive emails.
-* **Cryptographic Verification**: Analyzes SPF, DKIM, and DMARC authentication headers to ensure sender legitimacy.
-* **Forensic PDF Generation**: Automatically compiles tamper-evident PDF SOC reports for any flagged email, complete with SHA-256 evidence hashing.
-* **Modern React UI**: A seamless, single-page application (SPA) built with React.js, featuring dark-mode aesthetics, live websockets, and interactive data visualizations.
-
----
+*   **Heuristic NLP Engine**: Uses a rule-based Natural Language Processing engine and transformer models to detect urgency, lures, and malicious intent within email content.
+*   **Geo-Intelligence & Impossible Travel**: Identifies the true physical location of sender IPs using MaxMind's DB-IP database. Automatically flags anomalous "impossible travel" logins by calculating the speed and distance between consecutive emails.
+*   **Cryptographic Verification**: Analyzes SPF and DMARC authentication headers to ensure sender legitimacy.
+*   **Forensic PDF Generation**: Automatically compiles tamper-evident PDF SOC reports for any flagged email, complete with SHA-256 evidence hashing.
+*   **Modern React UI**: A seamless, single-page application (SPA) built with React.js, featuring live websockets, and interactive data visualizations.
 
 ## 🛠️ Technology Stack
 
-* **Frontend**: React.js, HTML5, CSS3 (CDN/Babel compilation for zero-build deployments)
-* **Backend**: Python 3, FastAPI, Uvicorn
-* **Database**: MongoDB (Motor Async)
-* **Libraries**: `geoip2` (IP resolution), `fpdf2` (PDF generation), `pydantic` (Schema validation)
-
----
+*   **Frontend**: React.js, HTML5, CSS3 (CDN/Babel compilation for zero-build deployments).
+*   **Backend**: Python 3, FastAPI, Uvicorn.
+*   **Database**: MongoDB (Motor Async).
+*   **Libraries**: `geoip2` (IP resolution), `fpdf2` (PDF generation), `pydantic` (Schema validation).
 
 ## ⚙️ Quickstart Guide
 
-### Prerequisites
-* **Python 3.10+** installed
-* **MongoDB** running locally on port `27017`
+### Running with Docker (Recommended)
 
-### Setup
-
-1. **Activate your virtual environment**:
+1. **Clone the repository**
+2. **Configure Environment Variables**:
+   Copy `.env.example` to `.env` and fill in any required settings:
    ```bash
-   # Windows PowerShell
-   .\venv\Scripts\activate
+   cp .env.example .env
    ```
-
-2. **Install dependencies**:
+3. **Download GeoIP Database**:
+   Download the `GeoLite2-City.mmdb` database and place it in the root of the project.
+4. **Start the Application**:
    ```bash
-   pip install -r requirements.txt
+   docker compose up -d --build
    ```
+5. **Access the application**:
+   - Web App: `http://localhost:8000`
+   - API Docs: `http://localhost:8000/docs`
 
-3. **Ensure the GeoIP Database is present**:
-   The system requires a `GeoLite2-City.mmdb` file in the root directory for real-time IP attribution.
-
-### Running the Application
-
-Start the FastAPI server (which also serves the React frontend statically):
-```bash
-uvicorn main:app --reload
-```
-
-Navigate to `http://localhost:8000` in your web browser. Click the **"Login"** or **"Run a live analysis"** button to enter the dashboard.
-
----
+### Default Credentials
+- **Admin**: `admin` / `admin123`
+- **Analyst**: `analyst` / `analyst123`
 
 ## 📁 Project Structure
 
-```text
-├── frontend/        # React SPA (react-app.jsx), core logic (engine.js), styles (styles.css)
-├── api/             # FastAPI route definitions (routes.py) and websocket handlers
-├── services/        # Microservices for GeoIP, NLP, and Forensics
-├── models/          # Pydantic data schemas
-└── reports/         # Output directory for generated PDF forensic reports
-```
+*   `/frontend/`: Contains the React SPA, core logic, and styling.
+*   `/api/`: FastAPI route definitions and auth handlers.
+*   `/services/`: Microservices for GeoIP, NLP, Heuristics, and Forensics.
+*   `/models/`: Pydantic data schemas.
+*   `/tests/`: Pytest automated test suite.
+*   `/reports/`: Output directory for generated PDF forensic reports.

@@ -1,8 +1,5 @@
 import logging
-from transformers import pipeline
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class PhishingNLPAnalyzer:
@@ -18,6 +15,7 @@ class PhishingNLPAnalyzer:
         if self._loaded:
             return
         try:
+            from transformers import pipeline
             logger.info(f"Loading NLP model: {self.model_name}...")
             self.classifier = pipeline("text-classification", model=self.model_name, truncation=True, max_length=512)
             logger.info("NLP model loaded successfully.")

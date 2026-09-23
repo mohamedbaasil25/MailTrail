@@ -12,14 +12,19 @@ class Database:
     async def connect_db(cls):
         """Initializes the database connection pool."""
         if cls.client is None:
-            logger.info(f"Connecting to MongoDB at {MONGO_URI}...")
-            cls.client = AsyncIOMotorClient(MONGO_URI)
-            cls.db = cls.client[DB_NAME]
+            logger.info(f"Connecting to MongoDB at {settings.mongo_uri}...")
+            cls.client = AsyncIOMotorClient(settings.mongo_uri)
+            cls.db = cls.client[settings.mongo_db_name]
             
             # Initialize indexes
             import pymongo
             await cls.db.threat_intelligence.create_index([("timestamp", pymongo.DESCENDING)])
             await cls.db.threat_intelligence.create_index([("message_id", pymongo.ASCENDING)])
+            await cls.db.threat_intelligence.create_index([("subject", pymongo.TEXT), ("sender_email", pymongo.TEXT)])
+            
+            # Create a TTL index for audit logs (90 days = 7776000 seconds)
+            await cls.db.audit_logs.create_index("timestamp", expireAfterSeconds=7776000)
+            
             logger.info("MongoDB indexes verified.")
 
     @classmethod

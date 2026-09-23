@@ -10,13 +10,16 @@ from services.geoip_service import geoip_service
 from services.forensic_service import forensic_service
 from services.heuristic_engine import score_heuristics
 from services.dns_validator import validate_domain_auth
-from database import get_threat_intelligence_collection
-from api.auth import get_current_user
+from services.threat_intel_service import threat_intel_service
+from database import get_threat_intelligence_collection, Database
+from api.auth import get_current_user, get_admin_user
+from services.pii_redactor import redact_pii
+from services.audit_service import log_audit_action
 from jose import JWTError, jwt
 from config import settings
+from rate_limiter import limiter
 
 router = APIRouter()
-limiter = Limiter(key_func=get_remote_address)
 
 class ConnectionManager:
     def __init__(self):
@@ -51,7 +54,8 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 @router.websocket("/ws/updates")
-async def websocket_endpoint(websocket: WebSocket, token: str = None):
+async def websocket_endpoint(websocket: WebSocket):
+    token = websocket.cookies.get("access_token")
     if not token:
         await websocket.close(code=1008)
         return
@@ -73,15 +77,30 @@ async def analyze_email(request: Request, email: EmailData, background_tasks: Ba
     """
     if not email.sender_email or not email.recipient_email:
         raise HTTPException(status_code=400, detail="Sender and recipient emails are required.")
+    
+    await log_audit_action(user["username"], "ANALYZE_EMAIL", f"Sender: {email.sender_email}, Subject: {email.subject}")
+    
+    analysis_response, evidence_hash = await run_analysis(email, user["username"])
+    
+    # Offload PDF generation to background to prevent event loop blocking
+    background_tasks.add_task(forensic_service.generate_pdf_report, email, analysis_response, evidence_hash)
+    
+    return analysis_response
+
+async def run_analysis(email: EmailData, username: str = "system") -> tuple:
+    """
+    Core analysis pipeline — callable from both HTTP routes and IMAP worker.
+    Returns (ThreatAnalysisResponse, evidence_hash).
+    """
+    # Apply Data Privacy (PII Redaction)
+    email.body_text = redact_pii(email.body_text)
+    email.subject = redact_pii(email.subject)
 
     detected_threats = []
     
     # 1. NLP Phishing Intent Analysis
-    # We combine the subject and body to give the model full context
     text_to_analyze = f"{email.subject} {email.body_text}"
     nlp_result = nlp_analyzer.analyze_text(text_to_analyze)
-    
-    # Scale 0.0-1.0 probability to 0-100 score
     nlp_risk_score = nlp_result["phishing_probability"] * 100
     
     if nlp_risk_score >= 70:
@@ -105,7 +124,6 @@ async def analyze_email(request: Request, email: EmailData, background_tasks: Ba
             
     # 2. GeoIP and Impossible Travel Detection
     geoip_risk_score = 0.0 
-    
     geolocation_info = None
     is_impossible_travel = False
     
@@ -114,36 +132,33 @@ async def analyze_email(request: Request, email: EmailData, background_tasks: Ba
         geolocation_info = geoip_service.lookup_ip(sender_ip)
         if geolocation_info:
             geolocation_info["timestamp"] = datetime.utcnow()
-            
-            # Mocking a "last known login/activity" for demonstration purposes
-            # In a real app, this comes from a database linked to the user's account
             mock_last_login = {
-                "lat": 19.0760, # Mumbai coordinates
+                "lat": 19.0760,
                 "lon": 72.8777,
-                "timestamp": datetime.utcnow() - timedelta(hours=1) # 1 hour ago
+                "timestamp": datetime.utcnow() - timedelta(hours=1)
             }
-            
             is_impossible, speed = geoip_service.check_impossible_travel(geolocation_info, mock_last_login)
             if is_impossible:
                 is_impossible_travel = True
                 detected_threats.append(ThreatSignal(title="Impossible Travel", detail=f"Flagged! Calculated speed: {int(speed)} km/h.", points=20.0))
-                geoip_risk_score = 100.0 # Max penalty for impossible travel
+                geoip_risk_score = 100.0
     
     # 3. Ensemble Risk Score Calculation
-    # Combine NLP and Heuristics
     heuristic_results = score_heuristics(text_to_analyze)
     for sig in heuristic_results["signals"]:
         detected_threats.append(ThreatSignal(title=sig["title"], detail=sig["detail"], points=sig["points"]))
         
-    w_nlp = 0.3
-    w_heu = 0.3
-    w_auth = 0.2
-    w_geoip = 0.2
-    
-    final_risk_score = (nlp_risk_score * w_nlp) + (heuristic_results["score"] * w_heu) + (auth_risk_score * w_auth) + (geoip_risk_score * w_geoip)
+    # 4. External Threat Intelligence Integration
+    intel_signals = threat_intel_service.check_indicators(text_to_analyze)
+    intel_risk_score = 0.0
+    for sig in intel_signals:
+        detected_threats.append(ThreatSignal(title=sig["title"], detail=sig["detail"], points=sig["points"]))
+        intel_risk_score += sig["points"]
+        
+    w_nlp, w_heu, w_auth, w_geoip, w_intel = 0.25, 0.25, 0.2, 0.15, 0.15
+    final_risk_score = (nlp_risk_score * w_nlp) + (heuristic_results["score"] * w_heu) + (auth_risk_score * w_auth) + (geoip_risk_score * w_geoip) + (min(intel_risk_score, 100.0) * w_intel)
     final_risk_score = min(final_risk_score, 100.0)
     
-    # 4. Determine Threat Level based on the ensemble score
     if final_risk_score >= 75:
         threat_level = "Malicious"
     elif final_risk_score >= 40:
@@ -153,6 +168,8 @@ async def analyze_email(request: Request, email: EmailData, background_tasks: Ba
 
     analysis_response = ThreatAnalysisResponse(
         message_id=email.message_id or str(uuid.uuid4()),
+        sender_email=email.sender_email,
+        subject=email.subject,
         risk_score=round(final_risk_score, 2),
         threat_level=threat_level,
         detected_threats=detected_threats,
@@ -162,12 +179,8 @@ async def analyze_email(request: Request, email: EmailData, background_tasks: Ba
     
     # 5. Tamper-Evident Forensic Logging & PDF Generation
     evidence_hash = await forensic_service.log_evidence(email, analysis_response)
-    
     analysis_response.evidence_hash = evidence_hash
     analysis_response.report_url = f"/api/v1/report/{analysis_response.message_id}"
-    
-    # Offload PDF generation to background to prevent event loop blocking
-    background_tasks.add_task(forensic_service.generate_pdf_report, email, analysis_response, evidence_hash)
     
     # Persist the full analysis to MongoDB threat intelligence
     collection = get_threat_intelligence_collection()
@@ -177,7 +190,7 @@ async def analyze_email(request: Request, email: EmailData, background_tasks: Ba
     # Notify websockets
     await manager.broadcast(analysis_response.model_dump())
     
-    return analysis_response
+    return analysis_response, evidence_hash
 
 @router.get("/emails", response_model=list[ThreatAnalysisResponse], summary="Get all analyzed emails")
 async def get_emails(user=Depends(get_current_user)):
@@ -196,6 +209,42 @@ async def get_emails(user=Depends(get_current_user)):
         
     return emails
 
+@router.get("/vault/search", response_model=list[ThreatAnalysisResponse], summary="Search Evidence Vault")
+async def search_vault(query: str, limit: int = 50, user=Depends(get_current_user)):
+    """
+    Search the threat intelligence vault using text search on subject, sender, and body.
+    """
+    await log_audit_action(user["username"], "SEARCH_VAULT", f"Query: {query}")
+    collection = get_threat_intelligence_collection()
+    
+    if not query:
+        cursor = collection.find().sort("timestamp", -1).limit(limit)
+    else:
+        cursor = collection.find(
+            {"$text": {"$search": query}},
+            {"score": {"$meta": "textScore"}}
+        ).sort([("score", {"$meta": "textScore"}), ("timestamp", -1)]).limit(limit)
+        
+    emails = []
+    async for document in cursor:
+        if "_id" in document:
+            del document["_id"]
+        if "score" in document:
+            del document["score"]
+        emails.append(ThreatAnalysisResponse(**document))
+        
+    return emails
+
+@router.delete("/investigations", summary="Clear Vault")
+async def clear_vault(user=Depends(get_admin_user)):
+    """
+    Clears all evidence from the vault (Requires Admin)
+    """
+    await log_audit_action(user["username"], "CLEAR_VAULT", "Admin cleared all investigations")
+    collection = get_threat_intelligence_collection()
+    await collection.delete_many({})
+    return {"message": "Vault cleared"}
+
 @router.get("/report/{message_id}", summary="Download Forensic PDF Report")
 async def download_report(message_id: str, user=Depends(get_current_user)):
     """
@@ -211,4 +260,4 @@ async def health_check():
     """
     Simple health check endpoint to verify the API is running.
     """
-    return {"status": "healthy", "service": "Email Intelligence API"}
+    return {"status": "healthy", "ok": True, "service": "Email Intelligence API"}

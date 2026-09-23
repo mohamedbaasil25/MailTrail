@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: mailtrail-backend
+    env: docker
+    plan: free
+    branch: main
+    healthCheckPath: /docs
+    envVars:
+      - key: MONGO_URI
+        sync: false # You will provide your MongoDB Atlas connection string in the Render Dashboard
+      - key: MONGO_DB_NAME
+        value: email_intelligence_db
+      - key: JWT_SECRET_KEY
+        generateValue: true # Render automatically generates a secure secret for this
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 120
+      - key: ALLOWED_ORIGIN
+        value: "*"
+      # IMAP is disabled by default for the web service unless you fill these in via the dashboard
+      - key: IMAP_SERVER
+        value: ""
+      - key: IMAP_USER
+        value: ""
+      - key: IMAP_PASS
+        value: ""

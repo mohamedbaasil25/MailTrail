@@ -11,8 +11,8 @@ class EmailData(BaseModel):
     Model representing the incoming email data to be analyzed.
     """
     message_id: Optional[str] = Field(None, max_length=255)
-    sender_email: EmailStr = Field(..., max_length=255)
-    recipient_email: EmailStr = Field(..., max_length=255)
+    sender_email: str = Field(..., max_length=255)
+    recipient_email: str = Field(..., max_length=255)
     subject: str = Field("", max_length=1000)
     body_text: str = Field("", max_length=100000)
     body_html: Optional[str] = Field(None, max_length=100000)

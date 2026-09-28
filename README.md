@@ -326,3 +326,5 @@ Documented deliberately, not hidden:
 - **This is an MVP heuristic/ensemble scorer**, not a trained, validated
   detection model, and has not been through a third-party security audit.
   Treat its verdicts as investigative signal, not ground truth.
+#   M a i l T r a i l  
+ 

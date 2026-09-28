@@ -1,0 +1,9 @@
+# Caddyfile
+
+# Replace your_domain.com with your actual domain name or the server's public IP address.
+# If using an IP address (e.g., http://123.45.67.89), Caddy will not provision an SSL cert.
+# If using a domain (e.g., mailtrail.yourdomain.com), Caddy will automatically get a Let's Encrypt SSL cert.
+
+{$DOMAIN:localhost} {
+    reverse_proxy backend:8000
+}

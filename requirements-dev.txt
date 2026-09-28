@@ -1,0 +1,12 @@
+# Dev/CI-only dependencies - deliberately NOT installed in the production
+# Docker image (see Dockerfile). Install with:
+#   pip install -r requirements.txt -r requirements-dev.txt
+-r requirements.txt
+pytest
+pytest-asyncio
+httpx<0.28.0
+mongomock-motor
+mongomock
+pdfplumber
+pip-audit
+bandit

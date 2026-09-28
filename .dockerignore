@@ -1,0 +1,21 @@
+venv/
+.venv
+__pycache__/
+*.pyc
+*.pyo
+.git/
+reports/*.pdf
+
+scratch/
+.pytest_cache/
+
+# Never bake secrets or dev-only files into the image
+.env
+.env.*
+!.env.example
+tests/
+requirements-dev.txt
+.github/
+*.md
+node_modules/
+

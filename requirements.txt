@@ -1,0 +1,20 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+fastapi==0.135.0
+uvicorn[standard]==0.27.1
+gunicorn==23.0.0
+pydantic==2.9.2
+pydantic-settings
+pyjwt==2.15.0
+bcrypt
+python-multipart
+dnspython
+requests
+transformers>=4.37.2
+torch>=2.2.0
+geoip2==2.9.0
+fpdf2==2.7.7
+motor>=3.6.0
+slowapi==0.1.10
+websockets
+redis>=5.0.1
+imapclient>=3.0.0
